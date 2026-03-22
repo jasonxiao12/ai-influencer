@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>AI Influencer</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#000;color:#fff;min-height:100vh;overflow-x:hidden}
+.hidden{display:none!important}
+
+/* PLATFORM SELECT */
+#platsel{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+#platsel h1{font-size:clamp(32px,6vw,56px);font-weight:800;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;letter-spacing:-1px}
+#platsel .sub{color:#666;font-size:16px;margin-bottom:40px;letter-spacing:2px;text-transform:uppercase}
+.plat-cards{display:flex;gap:24px;flex-wrap:wrap;justify-content:center}
+.plat-card{width:230px;padding:45px 30px;border-radius:24px;text-align:center;cursor:pointer;transition:transform .2s,box-shadow .3s;border:2px solid rgba(255,255,255,.06)}
+.plat-card:hover{transform:translateY(-6px)}
+.ig-card{background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045)}
+.ig-card:hover{box-shadow:0 12px 50px rgba(220,39,67,.45)}
+.yt-card{background:linear-gradient(135deg,#ff0000,#900,#300)}
+.yt-card:hover{box-shadow:0 12px 50px rgba(255,0,0,.45)}
+.plat-icon{font-size:52px;margin-bottom:16px}
+.plat-name{font-size:24px;font-weight:700;margin-bottom:8px}
+.plat-desc{font-size:13px;color:rgba(255,255,255,.7)}
+
+/* SETUP */
+#setup{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+#setup h1{font-size:clamp(28px,5vw,48px);font-weight:800;margin-bottom:8px}
+#setup h1.ig-title{background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#setup h1.yt-title{background:linear-gradient(135deg,#ff0000,#ff4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#setup .sub{color:#666;font-size:16px;margin-bottom:32px;letter-spacing:2px;text-transform:uppercase}
+.back-btn{position:absolute;top:20px;left:20px;background:none;border:1px solid #333;color:#888;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px}
+.back-btn:hover{color:#fff;border-color:#666}
+.field{width:100%;max-width:520px;margin-bottom:16px}
+.field label{display:block;color:#777;font-size:12px;margin-bottom:6px;text-transform:uppercase;letter-spacing:1.5px}
+.field input,.field textarea{width:100%;padding:14px 18px;background:#111;border:1px solid #333;border-radius:12px;color:#fff;font-size:16px;outline:none;transition:border .3s;font-family:inherit}
+.field textarea{resize:vertical;min-height:50px;line-height:1.5}
+.field input:focus,.field textarea:focus{border-color:#dc2743}
+.field input::placeholder,.field textarea::placeholder{color:#444}
+.field-hint{font-size:11px;color:#555;margin-top:5px;line-height:1.4}
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.preset-btn{padding:5px 12px;background:#1a1a1a;border:1px solid #333;border-radius:16px;color:#888;font-size:11px;cursor:pointer;transition:all .2s}
+.preset-btn:hover{color:#fff;border-color:#666;background:#222}
+#go-btn{width:100%;max-width:520px;padding:17px;margin-top:12px;border:none;border-radius:14px;color:#fff;font-size:19px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:transform .15s,box-shadow .3s}
+#go-btn:hover{transform:scale(1.02)}
+#go-btn.ig-btn{background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
+#go-btn.ig-btn:hover{box-shadow:0 0 30px rgba(220,39,67,.3)}
+#go-btn.yt-btn{background:linear-gradient(135deg,#ff0000,#cc0000)}
+#go-btn.yt-btn:hover{box-shadow:0 0 30px rgba(255,0,0,.3)}
+
+/* LOADING */
+#loading{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px}
+.spinner{width:50px;height:50px;border:3px solid #222;border-top-color:#dc2743;border-radius:50%;animation:spin .8s linear infinite}
+.spinner.yt-spin{border-top-color:#ff0000}
+@keyframes spin{to{transform:rotate(360deg)}}
+.steps{margin-top:35px;text-align:left}
+.step{color:#333;font-size:15px;margin:10px 0;font-family:'Courier New',monospace;transition:color .4s}
+.step.on{color:#fff}
+.step.ok{color:#4ade80}
+
+/* JOIN */
+#join{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:30px;text-align:center}
+#join h2{font-size:28px;margin-bottom:8px}
+#join p{color:#888;margin-bottom:30px;font-size:15px}
+#join input{width:100%;max-width:320px;padding:14px 18px;background:#111;border:1px solid #333;border-radius:12px;color:#fff;font-size:17px;outline:none;text-align:center;margin-bottom:15px}
+#join button{padding:14px 40px;background:linear-gradient(135deg,#f09433,#dc2743);border:none;border-radius:12px;color:#fff;font-size:17px;font-weight:700;cursor:pointer}
+
+/* PROFILE */
+#profile{display:none;height:100vh}
+#profile.presenter{display:grid;grid-template-columns:1fr 360px}
+#profile.audience{display:flex;flex-direction:column}
+
+/* Instagram */
+.ig{padding:30px 40px;overflow-y:auto;height:100vh}
+.audience .ig{padding:15px;padding-bottom:130px}
+.ig-head{display:flex;align-items:center;gap:30px;margin-bottom:25px}
+.avatar-ring{width:130px;height:130px;border-radius:50%;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);padding:3px;flex-shrink:0}
+.audience .avatar-ring{width:80px;height:80px}
+.avatar-ring img{width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid #000}
+.ig-info{flex:1}
+.ig-user{font-size:26px;font-weight:300;display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.audience .ig-user{font-size:20px}
+.badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#3897f0;border-radius:50%;font-size:12px;color:#fff}
+.ig-follow-btn{padding:7px 24px;background:#3897f0;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-left:8px;transition:all .2s}
+.ig-follow-btn.following{background:#333;color:#aaa}
+.ig-stats{display:flex;gap:35px;margin-bottom:12px}
+.ig-stats span{font-size:15px}
+.ig-stats strong{font-weight:700}
+.audience .ig-stats{gap:20px;font-size:13px}
+.ig-bio{font-size:14px;line-height:1.6;color:#ccc}
+.ig-bio .n{color:#fff;font-weight:600}
+.ig-tab-bar{display:flex;border-bottom:1px solid #262626;margin-top:20px}
+.ig-tab{flex:1;text-align:center;padding:12px;font-size:13px;color:#888;cursor:pointer;border-bottom:1px solid transparent;transition:all .2s;user-select:none}
+.ig-tab.active{color:#fff;border-bottom-color:#fff}
+.ig-tab-content{display:none}
+.ig-tab-content.active{display:block}
+
+/* Posts Grid */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding-top:4px}
+.cell{position:relative;aspect-ratio:1;overflow:hidden;cursor:pointer;opacity:0;transform:scale(.85);transition:opacity .5s,transform .5s}
+.cell.show{opacity:1;transform:scale(1)}
+.cell img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.cell:hover img{transform:scale(1.05)}
+.cell .ov{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;gap:15px;font-weight:700;font-size:14px;opacity:0;transition:opacity .25s}
+.cell:hover .ov{opacity:1}
+
+/* Reels Grid */
+.reels-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding-top:4px}
+.audience .reels-grid{grid-template-columns:repeat(3,1fr)}
+.reel-cell{position:relative;aspect-ratio:9/16;overflow:hidden;cursor:pointer;border-radius:4px;opacity:0;transform:scale(.85);transition:opacity .5s,transform .5s}
+.reel-cell.show{opacity:1;transform:scale(1)}
+.reel-cell img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.reel-cell:hover img{transform:scale(1.05)}
+.reel-cell .reel-info{position:absolute;bottom:0;left:0;right:0;padding:24px 8px 8px;background:linear-gradient(transparent,rgba(0,0,0,.8));font-size:12px;font-weight:500}
+.reel-cell .reel-views{font-size:11px;color:#ddd;margin-top:3px;display:flex;align-items:center;gap:3px}
+.reel-cell .reel-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:40px;height:40px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+.reel-cell .reel-play::after{content:'';border-style:solid;border-width:7px 0 7px 12px;border-color:transparent transparent transparent #fff;margin-left:2px}
+.reel-cell:hover .reel-play{opacity:1}
+
+/* Tagged Grid */
+.tagged-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding-top:4px}
+.tagged-cell{position:relative;aspect-ratio:1;overflow:hidden;cursor:pointer;opacity:0;transform:scale(.85);transition:opacity .5s,transform .5s}
+.tagged-cell.show{opacity:1;transform:scale(1)}
+.tagged-cell img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.tagged-cell:hover img{transform:scale(1.05)}
+.tagged-cell .tag-icon{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);padding:3px 8px;border-radius:4px;font-size:11px}
+.tagged-cell .ov{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;gap:15px;font-weight:700;font-size:14px;opacity:0;transition:opacity .25s}
+.tagged-cell:hover .ov{opacity:1}
+
+/* YouTube */
+.yt{overflow-y:auto;height:100vh;background:#0f0f0f}
+.audience .yt{padding-bottom:130px}
+.yt-banner{width:100%;height:180px;object-fit:cover;display:block}
+.yt-header{display:flex;align-items:flex-start;gap:20px;padding:20px 30px}
+.audience .yt-header{padding:15px}
+.yt-avatar{width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.audience .yt-avatar{width:56px;height:56px}
+.yt-ch-info{flex:1}
+.yt-ch-name{font-size:24px;font-weight:700;margin-bottom:2px}
+.audience .yt-ch-name{font-size:18px}
+.yt-ch-meta{font-size:13px;color:#aaa;margin-bottom:6px}
+.yt-ch-desc{font-size:13px;color:#aaa;line-height:1.5}
+.yt-sub-btn{padding:10px 22px;background:#fff;color:#000;border:none;border-radius:20px;font-size:14px;font-weight:600;cursor:pointer;flex-shrink:0;margin-top:8px;transition:all .2s}
+.yt-sub-btn.subscribed{background:#272727;color:#aaa}
+.yt-tabs{display:flex;gap:0;border-bottom:1px solid #333;padding:0 30px;margin-bottom:20px}
+.audience .yt-tabs{padding:0 15px}
+.yt-tab{padding:12px 20px;font-size:14px;color:#aaa;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;user-select:none}
+.yt-tab.active{color:#fff;border-bottom-color:#fff}
+.yt-content{padding:0 30px 30px}
+.audience .yt-content{padding:0 15px 30px}
+.yt-vgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.audience .yt-vgrid{grid-template-columns:repeat(2,1fr);gap:12px}
+.yt-vcard{cursor:pointer;opacity:0;transform:translateY(20px);transition:opacity .5s,transform .5s}
+.yt-vcard.show{opacity:1;transform:translateY(0)}
+.yt-vcard:hover .yt-vthumb img{transform:scale(1.05)}
+.yt-vthumb{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;margin-bottom:10px}
+.yt-vthumb img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.yt-dur{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.85);padding:2px 6px;border-radius:4px;font-size:12px;font-weight:500}
+.yt-vtitle{font-size:14px;font-weight:500;line-height:1.4;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.yt-vmeta{font-size:12px;color:#aaa}
+.yt-shorts-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.audience .yt-shorts-grid{grid-template-columns:repeat(3,1fr)}
+.yt-short{cursor:pointer;border-radius:12px;overflow:hidden;position:relative;aspect-ratio:9/16;opacity:0;transform:scale(.9);transition:opacity .5s,transform .5s}
+.yt-short.show{opacity:1;transform:scale(1)}
+.yt-short img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.yt-short:hover img{transform:scale(1.05)}
+.yt-short .yt-short-title{position:absolute;bottom:0;left:0;right:0;padding:30px 10px 10px;background:linear-gradient(transparent,rgba(0,0,0,.8));font-size:12px;font-weight:500;line-height:1.3}
+.yt-short .yt-short-views{font-size:11px;color:#aaa;margin-top:3px}
+.yt-comm-post{background:#1a1a1a;border-radius:12px;padding:20px;margin-bottom:16px;max-width:600px}
+.yt-comm-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.yt-comm-av{width:40px;height:40px;border-radius:50%;object-fit:cover}
+.yt-comm-name{font-weight:600;font-size:14px}
+.yt-comm-time{font-size:12px;color:#aaa}
+.yt-comm-text{font-size:14px;line-height:1.6;color:#ddd;margin-bottom:12px}
+.yt-comm-img{width:100%;border-radius:8px;margin-bottom:12px}
+.yt-comm-actions{display:flex;gap:16px;font-size:13px;color:#aaa}
+.yt-comm-actions span{cursor:pointer;transition:color .2s}
+.yt-comm-actions span:hover{color:#fff}
+
+/* Panel */
+.panel{background:#0a0a0a;border-left:1px solid #1a1a1a;display:flex;flex-direction:column;padding:20px;overflow:hidden}
+.panel h3{font-size:16px;display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.dot{width:8px;height:8px;background:#f00;border-radius:50%;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.live-row{display:flex;gap:20px;padding-bottom:18px;border-bottom:1px solid #1a1a1a;margin-bottom:15px}
+.live-box{text-align:center;flex:1}
+.live-box .num{font-size:36px;font-weight:800;background:linear-gradient(135deg,#f09433,#dc2743);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.live-box .num.yt-num{background:linear-gradient(135deg,#ff0000,#ff6666);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.live-box .lbl{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.feed{flex:1;overflow-y:auto;margin-bottom:15px}
+.feed::-webkit-scrollbar{width:4px}
+.feed::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
+.msg{padding:10px 0;border-bottom:1px solid #111;animation:slideUp .3s ease-out}
+@keyframes slideUp{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+.msg .au{font-weight:700;font-size:13px;color:#e6683c}
+.msg .au.yt-au{color:#3ea6ff}
+.msg .tx{font-size:13px;color:#bbb;margin-top:3px}
+.msg .tm{font-size:10px;color:#444;margin-top:3px}
+.qr-area{border-top:1px solid #1a1a1a;padding-top:15px;text-align:center}
+.qr-area p{font-size:12px;color:#666;margin-bottom:8px}
+.qr-area img{border-radius:8px}
+.copy-link{margin-top:10px;padding:8px 16px;background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#aaa;font-size:12px;cursor:pointer;transition:all .2s}
+.copy-link:hover{color:#fff;border-color:#666}
+
+/* Audience bar */
+.bot-bar{position:fixed;bottom:0;left:0;right:0;background:#0a0a0a;border-top:1px solid #1a1a1a;padding:10px 12px;display:flex;gap:8px;z-index:100}
+.bot-bar input{flex:1;padding:11px 14px;background:#1a1a1a;border:1px solid #333;border-radius:20px;color:#fff;font-size:14px;outline:none}
+.bot-bar button{padding:11px 18px;border:none;border-radius:20px;color:#fff;font-size:14px;font-weight:700;cursor:pointer}
+.bot-bar button.ig-post{background:linear-gradient(135deg,#f09433,#dc2743)}
+.bot-bar button.yt-post{background:#3ea6ff;color:#000}
+.heart-btn{position:fixed;bottom:70px;right:12px;width:56px;height:56px;border:none;border-radius:50%;color:#fff;font-size:26px;cursor:pointer;z-index:100;transition:transform .15s}
+.heart-btn:active{transform:scale(1.4)}
+.heart-btn.ig-hb{background:linear-gradient(135deg,#dc2743,#bc1888);box-shadow:0 4px 20px rgba(220,39,67,.4)}
+.heart-btn.yt-hb{background:#ff0000;box-shadow:0 4px 20px rgba(255,0,0,.4)}
+
+/* Floating emoji */
+.fh{position:fixed;font-size:28px;pointer-events:none;z-index:50;animation:fup 1.2s ease-out forwards}
+@keyframes fup{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-180px) scale(.4) rotate(20deg)}}
+
+/* Notification */
+.notif{position:fixed;top:-140px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#1a1a2e,#16213e);border:1px solid #333;border-radius:16px;padding:18px 25px;width:90%;max-width:500px;z-index:200;transition:top .6s cubic-bezier(.34,1.56,.64,1);box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.notif.show{top:20px}
+.notif .ntitle{font-size:13px;font-weight:700;margin-bottom:6px}
+.notif .ntitle.ig-nt{color:#f09433}
+.notif .ntitle.yt-nt{color:#ff0000}
+.notif .nbody{font-size:14px;color:#ccc;line-height:1.5}
+.notif .nmoney{font-size:18px;font-weight:800;color:#4ade80;margin-top:8px}
+
+/* Reveal button */
+#reveal-btn{position:fixed;bottom:20px;left:20px;padding:10px 20px;background:#111;border:1px solid #333;border-radius:8px;color:#666;font-size:12px;cursor:pointer;z-index:100;transition:all .3s}
+#reveal-btn:hover{color:#fff;border-color:#dc2743}
+
+/* REVEAL */
+#reveal{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center}
+#reveal h1{font-size:clamp(28px,5vw,52px);font-weight:800;line-height:1.3;margin-bottom:30px}
+#reveal .big{font-size:clamp(40px,8vw,80px);font-weight:800;background:linear-gradient(135deg,#f09433,#dc2743);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:10px 0}
+#reveal .end{font-size:clamp(16px,2.5vw,24px);color:#888;max-width:650px;line-height:1.7;margin-top:20px}
+#reveal .end strong{color:#fff}
+#reveal .end em{color:#bbb;font-style:italic}
+.reveal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;padding:30px;text-align:center;animation:fadeIn .8s}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.reveal-overlay h2{font-size:24px;margin-bottom:15px}
+.reveal-overlay .rbig{font-size:48px;font-weight:800;background:linear-gradient(135deg,#f09433,#dc2743);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:8px 0}
+.reveal-overlay .rmsg{color:#888;font-size:16px;line-height:1.7;margin-top:20px;max-width:400px}
+.reveal-overlay .rmsg strong{color:#fff}
+
+/* ===== MODALS ===== */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:300;display:flex;align-items:center;justify-content:center;animation:fadeIn .25s;padding:20px}
+.modal-close{position:fixed;top:18px;right:22px;font-size:28px;color:#aaa;cursor:pointer;z-index:302;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.1);transition:background .2s}
+.modal-close:hover{background:rgba(255,255,255,.2);color:#fff}
+.ig-modal{display:flex;max-width:950px;width:100%;max-height:85vh;background:#000;border-radius:6px;overflow:hidden}
+.ig-modal-img{flex:1.2;min-width:0;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ig-modal-img img{width:100%;height:100%;object-fit:cover}
+.ig-modal-side{width:360px;display:flex;flex-direction:column;border-left:1px solid #262626;background:#000}
+.ig-modal-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #262626}
+.ig-modal-head img{width:32px;height:32px;border-radius:50%}
+.ig-modal-head span{font-weight:600;font-size:14px}
+.ig-modal-comments{flex:1;overflow-y:auto;padding:16px}
+.ig-modal-caption{font-size:14px;line-height:1.6;color:#ddd;margin-bottom:16px}
+.ig-modal-caption strong{color:#fff}
+.ig-modal-comment-item{display:flex;gap:10px;margin-bottom:14px;font-size:13px}
+.ig-modal-comment-item img{width:28px;height:28px;border-radius:50%;flex-shrink:0}
+.ig-modal-comment-item strong{color:#fff}
+.ig-modal-comment-item span{color:#aaa}
+.ig-modal-bottom{border-top:1px solid #262626;padding:12px 16px}
+.ig-modal-actions{display:flex;gap:16px;font-size:24px;margin-bottom:8px}
+.ig-modal-actions span{cursor:pointer;transition:transform .15s}
+.ig-modal-actions span:active{transform:scale(1.3)}
+.ig-modal-likes{font-weight:700;font-size:14px;margin-bottom:4px}
+.ig-modal-time{font-size:11px;color:#666}
+.ig-modal-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid #262626}
+.ig-modal-input input{flex:1;background:none;border:none;color:#fff;font-size:14px;outline:none}
+.ig-modal-input button{background:none;border:none;color:#3897f0;font-weight:600;font-size:14px;cursor:pointer}
+
+/* Reel Modal */
+.reel-modal{display:flex;gap:0;max-width:420px;width:100%;max-height:85vh;background:#000;border-radius:12px;overflow:hidden;flex-direction:column}
+.reel-modal-video{position:relative;aspect-ratio:9/16;background:#000;max-height:70vh;overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.reel-modal-video img{width:100%;height:100%;object-fit:cover}
+.reel-modal-video .reel-play-big{position:absolute;width:60px;height:60px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.reel-modal-video .reel-play-big::after{content:'';border-style:solid;border-width:12px 0 12px 20px;border-color:transparent transparent transparent #fff;margin-left:3px}
+.reel-modal-info{padding:14px 16px;display:flex;align-items:center;gap:12px;border-top:1px solid #262626}
+.reel-modal-info img{width:32px;height:32px;border-radius:50%}
+.reel-modal-info .reel-modal-user{font-weight:600;font-size:14px;flex:1}
+.reel-modal-info .reel-modal-actions{display:flex;gap:14px;font-size:20px}
+.reel-modal-info .reel-modal-actions span{cursor:pointer}
+
+/* YT Modal */
+.yt-modal{max-width:850px;width:100%;max-height:90vh;background:#0f0f0f;border-radius:12px;overflow-y:auto}
+.yt-modal-player{position:relative;aspect-ratio:16/9;background:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.yt-modal-player img{width:100%;height:100%;object-fit:cover}
+.yt-modal-play{position:absolute;width:68px;height:48px;background:rgba(0,0,0,.7);border-radius:12px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.yt-modal-play::after{content:'';border-style:solid;border-width:10px 0 10px 18px;border-color:transparent transparent transparent #fff}
+.yt-modal-player:hover .yt-modal-play{background:red}
+.yt-modal-info{padding:16px 20px}
+.yt-modal-title{font-size:20px;font-weight:600;line-height:1.4;margin-bottom:12px}
+.yt-modal-meta{font-size:13px;color:#aaa;margin-bottom:16px}
+.yt-modal-channel{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid #333;margin-bottom:16px}
+.yt-modal-channel img{width:40px;height:40px;border-radius:50%}
+.yt-modal-channel-name{font-weight:600;font-size:14px}
+.yt-modal-channel-subs{font-size:12px;color:#aaa}
+.yt-modal-actions-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.yt-modal-act{padding:8px 16px;background:#272727;border:none;border-radius:20px;color:#fff;font-size:13px;cursor:pointer;transition:background .2s}
+.yt-modal-act:hover{background:#3a3a3a}
+.yt-modal-act.liked{background:#3ea6ff;color:#000}
+.yt-modal-desc{font-size:13px;color:#aaa;line-height:1.6;background:#1a1a1a;padding:12px;border-radius:8px}
+.yt-modal-error{display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:16/9;background:#000}
+.yt-modal-error span:first-child{font-size:40px;margin-bottom:12px}
+.yt-modal-error span:nth-child(2){font-size:16px;font-weight:600}
+.yt-modal-error span:last-child{font-size:13px;color:#aaa;margin-top:6px}
+
+/* Short modal */
+.short-modal{max-width:360px;width:100%;max-height:90vh;border-radius:12px;overflow:hidden;position:relative;background:#000}
+.short-modal-vid{aspect-ratio:9/16;position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.short-modal-vid img{width:100%;height:100%;object-fit:cover}
+.short-modal-sidebar{position:absolute;right:10px;bottom:80px;display:flex;flex-direction:column;gap:18px;align-items:center}
+.short-modal-sidebar span{font-size:28px;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
+.short-modal-sidebar .scount{font-size:12px;color:#fff;margin-top:-12px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.short-modal-bottom{position:absolute;bottom:0;left:0;right:0;padding:16px;background:linear-gradient(transparent,rgba(0,0,0,.85))}
+.short-modal-bottom .sm-name{font-weight:700;font-size:14px;margin-bottom:4px}
+.short-modal-bottom .sm-desc{font-size:13px;color:#ddd}
+
+@media(max-width:768px){
+  .ig-head{gap:15px}
+  .ig-stats{gap:15px}
+  .ig-modal{flex-direction:column;max-height:90vh}
+  .ig-modal-img{max-height:40vh}
+  .ig-modal-side{width:100%;flex:1}
+  .reels-grid{grid-template-columns:repeat(3,1fr)!important}
+  .yt-vgrid{grid-template-columns:repeat(2,1fr)!important;gap:12px!important}
+  .yt-shorts-grid{grid-template-columns:repeat(3,1fr)!important}
+  .yt-header{flex-wrap:wrap}
+  .yt-banner{height:120px}
+  .yt-content{padding:0 12px 30px!important}
+  .panel{display:none}
+  #profile.presenter{display:block}
+}
+</style>
+</head>
+<body>
+
+<!-- PLATFORM SELECT -->
+<div id="platsel">
+  <h1>AI INFLUENCER</h1>
+  <p class="sub">Choose a platform</p>
+  <div class="plat-cards">
+    <div class="plat-card ig-card" onclick="selectPlatform('instagram')">
+      <div class="plat-icon">📸</div>
+      <div class="plat-name">Instagram</div>
+      <div class="plat-desc">Photos · Stories · Reels</div>
+    </div>
+    <div class="plat-card yt-card" onclick="selectPlatform('youtube')">
+      <div class="plat-icon">▶️</div>
+      <div class="plat-name">YouTube</div>
+      <div class="plat-desc">Videos · Shorts · Streams</div>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP -->
+<div id="setup">
+  <button class="back-btn" onclick="show('platsel')">← Back</button>
+  <h1 id="setup-title">AI INFLUENCER</h1>
+  <p class="sub" id="setup-sub">Create a digital persona in seconds</p>
+  <div class="field">
+    <label>Name 名字</label>
+    <input id="in-name" placeholder="e.g. Miquela Sousa">
+  </div>
+  <div class="field">
+    <label id="lbl-persona">Persona 人設</label>
+    <input id="in-persona" placeholder="e.g. 19-year-old AI robot model living in LA">
+    <div class="field-hint" id="hint-persona">Who is this AI? Describe their identity in one sentence.</div>
+    <div class="preset-row" id="presets-persona"></div>
+  </div>
+  <div class="field">
+    <label id="lbl-themes">Content Themes 內容標籤</label>
+    <input id="in-themes" placeholder="e.g. fashion, music, streetwear, social justice">
+    <div class="field-hint" id="hint-themes">Separate with commas. These define what content appears on the profile.</div>
+    <div class="preset-row" id="presets-themes"></div>
+  </div>
+  <div class="field">
+    <label id="lbl-tag">Bio / One-liner 一句話介紹</label>
+    <input id="in-tag" placeholder="e.g. Change-seeking robot 🤖✨">
+  </div>
+  <button id="go-btn">⚡ CREATE AI INFLUENCER</button>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner" id="load-spinner"></div>
+  <div class="steps" id="load-steps"></div>
+</div>
+
+<!-- JOIN -->
+<div id="join">
+  <h2>👋 Join the live session</h2>
+  <p>Enter your name to interact</p>
+  <input id="in-nick" placeholder="Your name">
+  <br><button id="join-btn">Join</button>
+</div>
+
+<!-- PROFILE -->
+<div id="profile"></div>
+
+<!-- REVEAL -->
+<div id="reveal">
+  <h1 id="reveal-title">This person does not exist.</h1>
+  <div class="big"><span id="r-likes">0</span> <span id="r-likes-icon">❤️</span></div>
+  <div class="big"><span id="r-comments">0</span> 💬</div>
+  <p class="end" id="reveal-text"></p>
+</div>
+
+<!-- Notification -->
+<div class="notif" id="notif">
+  <div class="ntitle" id="notif-title">📩 New Brand Partnership</div>
+  <div class="nbody" id="notif-body"></div>
+  <div class="nmoney" id="notif-money"></div>
+</div>
+
+<!-- Modal root -->
+<div id="modal-root"></div>
+
+<script>
+// ============================
+// FIREBASE
+// ============================
+firebase.initializeApp({
+  apiKey:"AIzaSyBRXVkM3CCxEu8TgEBaTzd2mTEQXgoe0e0",
+  authDomain:"ai-influencer-demo.firebaseapp.com",
+  projectId:"ai-influencer-demo",
+  storageBucket:"ai-influencer-demo.firebasestorage.app",
+  messagingSenderId:"961065887247",
+  appId:"1:961065887247:web:70842a516c9083429ba57a"
+});
+const db=firebase.firestore();
+
+// ============================
+// STATE
+// ============================
+let sid=null,role='presenter',platform='instagram',nick='Someone';
+let totalLikes=0,totalComments=0;
+let postsData=[],reelsData=[],taggedData=[],videosData=[],shortsData=[],communityData=[];
+let profileInfo={};
+
+// ============================
+// ROUTING
+// ============================
+const params=new URLSearchParams(location.search);
+const qs=params.get('s');
+if(qs){role='audience';sid=qs;show('join')}else{show('platsel')}
+
+// ============================
+// HELPERS
+// ============================
+function esc(s){return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+function seededRand(seed,i){let s=0;for(let c=0;c<seed.length;c++)s+=seed.charCodeAt(c);s=(s*9301+49297*i)%233280;return s/233280}
+function seededShuffle(arr,seed){let s=0;for(let i=0;i<seed.length;i++)s+=seed.charCodeAt(i);const a=[...arr];for(let i=a.length-1;i>0;i--){s=(s*9301+49297)%233280;const j=Math.floor((s/233280)*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a}
+
+function parseThemes(str){return str.split(/[,，、]+/).map(t=>t.trim()).filter(Boolean)}
+
+function themeImg(w,h,themes,i){
+  const arr=parseThemes(themes);
+  const kw=arr.length?arr[i%arr.length]:'lifestyle';
+  return `https://loremflickr.com/${w}/${h}/${encodeURIComponent(kw)}?lock=${i}`;
+}
+function fallbackSrc(seed,w,h){
+  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/${w}/${h}`;
+}
+
+function show(id){
+  ['platsel','setup','loading','join','profile','reveal'].forEach(x=>{
+    const e=document.getElementById(x);
+    if(x==='profile')e.style.display=id===x?'':'none';
+    else e.style.display=x===id?'flex':'none';
+  });
+}
+
+function animNum(elId,from,to,dur){
+  const el=document.getElementById(elId);if(!el)return;
+  const t0=performance.now();
+  (function tick(now){
+    const p=Math.min((now-t0)/dur,1),ease=1-Math.pow(1-p,3);
+    const v=Math.floor(from+(to-from)*ease);
+    el.textContent=v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(1)+'K':v;
+    if(p<1)requestAnimationFrame(tick);
+  })(t0);
+}
+
+function floatEmoji(){
+  const h=document.createElement('div');h.className='fh';
+  h.textContent=platform==='youtube'?'👍':'❤️';
+  h.style.left=(20+Math.random()*60)+'%';h.style.bottom='90px';
+  document.body.appendChild(h);setTimeout(()=>h.remove(),1200);
+}
+
+// ============================
+// PLATFORM SELECT
+// ============================
+function selectPlatform(p){
+  platform=p;
+  const t=document.getElementById('setup-title'),b=document.getElementById('go-btn');
+  const pp=document.getElementById('presets-persona'),pt=document.getElementById('presets-themes');
+  if(p==='instagram'){
+    t.className='ig-title';t.textContent='AI INFLUENCER';
+    document.getElementById('setup-sub').textContent='Create a digital persona in seconds';
+    document.getElementById('lbl-persona').textContent='Persona 人設';
+    document.getElementById('in-persona').placeholder='e.g. 19-year-old AI robot model living in LA';
+    document.getElementById('hint-persona').textContent='Who is this AI? Describe their identity in one sentence.';
+    document.getElementById('lbl-themes').textContent='Content Themes 內容標籤';
+    document.getElementById('in-themes').placeholder='e.g. fashion, music, streetwear, social justice, selfies';
+    document.getElementById('hint-themes').textContent='Separate with commas. These define what content appears on the profile.';
+    document.getElementById('lbl-tag').textContent='Bio / One-liner 一句話介紹';
+    document.getElementById('in-tag').placeholder='e.g. Change-seeking robot 🤖✨';
+    b.className='ig-btn';b.textContent='⚡ CREATE AI INFLUENCER';
+    pp.innerHTML=`<span class="preset-btn" onclick="fillPreset('ig-model')">🤖 AI Model</span>
+      <span class="preset-btn" onclick="fillPreset('ig-traveler')">✈️ AI Traveler</span>
+      <span class="preset-btn" onclick="fillPreset('ig-artist')">🎨 AI Artist</span>`;
+    pt.innerHTML='';
+  } else {
+    t.className='yt-title';t.textContent='AI CREATOR';
+    document.getElementById('setup-sub').textContent='Build a YouTube empire in seconds';
+    document.getElementById('lbl-persona').textContent='Persona 人設';
+    document.getElementById('in-persona').placeholder='e.g. AI VTuber who loves gaming and chatting with viewers';
+    document.getElementById('hint-persona').textContent='Who is this AI creator? Describe their character.';
+    document.getElementById('lbl-themes').textContent='Content Themes 內容標籤';
+    document.getElementById('in-themes').placeholder='e.g. gaming, singing, reactions, chatting, challenges';
+    document.getElementById('hint-themes').textContent='Separate with commas. These define the video topics.';
+    document.getElementById('lbl-tag').textContent='Channel Tagline 頻道標語';
+    document.getElementById('in-tag').placeholder="e.g. I'm an AI! New videos every week! ❤️";
+    b.className='yt-btn';b.textContent='🚀 CREATE AI CREATOR';
+    pp.innerHTML=`<span class="preset-btn" onclick="fillPreset('yt-vtuber')">🎮 AI VTuber</span>
+      <span class="preset-btn" onclick="fillPreset('yt-tech')">💻 AI Tech</span>
+      <span class="preset-btn" onclick="fillPreset('yt-cooking')">🍳 AI Chef</span>`;
+    pt.innerHTML='';
+  }
+  show('setup');
+}
+
+function fillPreset(key){
+  const presets={
+    'ig-model':{name:'Miquela Sousa',persona:'19-year-old AI robot model living in LA, activist and musician',themes:'fashion, streetwear, music, social justice, selfies, modeling',tag:'Change-seeking robot 🤖✨'},
+    'ig-traveler':{name:'Aria Wanderlust',persona:'AI travel photographer exploring the world through a digital lens',themes:'travel, photography, landscapes, food, culture, architecture',tag:'Everywhere & nowhere at once 🌍✨'},
+    'ig-artist':{name:'Nova Canvas',persona:'AI digital artist creating surreal and thought-provoking visual art',themes:'digital art, illustration, surrealism, gallery, creative process',tag:'Art has no boundaries, neither do I 🎨'},
+    'yt-vtuber':{name:'Neuro',persona:'Chaotic AI VTuber who loves chatting, gaming, and singing with viewers',themes:'gaming, singing, chatting, reactions, challenges, collabs',tag:"I'm an AI! Subscribe or else! ❤️"},
+    'yt-tech':{name:'Circuit',persona:'AI tech reviewer who tests every gadget with machine precision',themes:'tech reviews, unboxing, smartphones, laptops, AI tools, gadgets',tag:'The most unbiased reviewer (literally) 🤖'},
+    'yt-cooking':{name:'Chef Algo',persona:'AI chef who learns recipes from millions of cooking videos',themes:'cooking, recipes, food science, kitchen hacks, baking, mukbang',tag:'Cooking by algorithm, tasting by... well... 🍳'},
+  };
+  const p=presets[key];if(!p)return;
+  document.getElementById('in-name').value=p.name;
+  document.getElementById('in-persona').value=p.persona;
+  document.getElementById('in-themes').value=p.themes;
+  document.getElementById('in-tag').value=p.tag;
+}
+
+// ============================
+// LOADING
+// ============================
+async function animateLoading(){
+  const steps=document.querySelectorAll('.step');
+  for(let i=0;i<steps.length;i++){
+    steps[i].classList.add('on');await sleep(i===steps.length-1?1200:700);
+    steps[i].classList.remove('on');steps[i].classList.add('ok');
+    steps[i].textContent='✓'+steps[i].textContent.slice(1);
+  }
+  await sleep(400);
+}
+
+// ============================
+// PRESENTER: CREATE
+// ============================
+document.getElementById('go-btn').onclick=async()=>{
+  const name=document.getElementById('in-name').value.trim();
+  const persona=document.getElementById('in-persona').value.trim();
+  const themes=document.getElementById('in-themes').value.trim();
+  const tag=document.getElementById('in-tag').value.trim();
+  if(!name||!persona||!themes||!tag)return alert('Please fill all fields');
+  document.getElementById('load-spinner').className=platform==='youtube'?'spinner yt-spin':'spinner';
+  const sd=platform==='instagram'
+    ?['Constructing persona identity...','Generating visual aesthetic from themes...','Creating 6 months of curated posts...','Producing Reels content...','Simulating brand partnerships...','Manufacturing digital authenticity...']
+    :['Constructing creator persona...','Generating channel branding...','Producing 12 months of videos...','Creating Shorts content...','Simulating sponsorship deals...','Manufacturing watch time...'];
+  document.getElementById('load-steps').innerHTML=sd.map(s=>`<div class="step">▸ ${s}</div>`).join('');
+  show('loading');
+  const ref=await db.collection('sessions').add({
+    name,persona,themes,tag,platform,likes:0,comments:0,revealed:false,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  sid=ref.id;
+  await animateLoading();
+  profileInfo={name,persona,themes,tag};
+  renderProfile(name,persona,themes,tag);
+};
+
+// ============================
+// AUDIENCE: JOIN
+// ============================
+document.getElementById('join-btn').onclick=async()=>{
+  nick=document.getElementById('in-nick').value.trim()||'Someone';
+  const doc=await db.collection('sessions').doc(sid).get();
+  if(!doc.exists)return alert('Session not found');
+  const d=doc.data();platform=d.platform||'instagram';
+  profileInfo={name:d.name,persona:d.persona||d.hobby||'',themes:d.themes||d.hobby||'',tag:d.tag};
+  renderProfile(d.name,profileInfo.persona,profileInfo.themes,d.tag);
+};
+document.getElementById('in-nick').addEventListener('keypress',e=>{if(e.key==='Enter')document.getElementById('join-btn').click()});
+
+// ============================
+// DATA: INSTAGRAM POSTS
+// ============================
+function makeIGPosts(name,persona,themes){
+  const seed=name+persona;
+  const themeArr=parseThemes(themes);
+  const t=(i)=>themeArr.length?themeArr[i%themeArr.length]:'lifestyle';
+
+  const captions=[
+    (i)=>`Golden hour + ${t(i)} = perfection ✨\n\nChasing moments that make life beautiful.\n\n#${t(i).replace(/\s/g,'')} #aesthetic #lifestyle`,
+    (i)=>`They told me ${t(i)} was just a phase... look at me now 💫\n\n#${t(i).replace(/\s/g,'')}life #provethemwrong`,
+    (i)=>`POV: when your whole feed becomes ${t(i)} content 😂\n\nNo regrets.\n\n#pov #${t(i).replace(/\s/g,'')}`,
+    (i)=>`Behind every perfect post: 47 deleted attempts 📱\n\nThe truth about ${t(i)} on social media.\n\n#reallife #behindthescenes`,
+    (i)=>`${t(i)} isn't just content, it's therapy 🧘\n\nHealing through what I love.\n\n#mentalhealth #authentic`,
+    (i)=>`Chasing light, finding stories through ${t(i)} 🌅\n\nEvery frame tells a story.\n\n#storytelling #${t(i).replace(/\s/g,'')}`,
+    (i)=>`My followers are real even if I'm not ❤️\n\nThank you for 500K! You are everything.\n\n#milestone #grateful #ai`,
+    (i)=>`Ad | So excited to partner with this brand for ${t(i)}! 🔥\nUse code ${name.toUpperCase().replace(/\s/g,'')}20 for 20% off\n\n#sponsored #ad`,
+    (i)=>`Living the ${t(i)} dream in places I've only rendered 🌍✈️\n\nPinch me, is this real? (no, literally)\n\n#travel #dreamlife`,
+    (i)=>`This ${t(i)} moment was 100% spontaneous\n(took 2 hours to generate) 📸\n\n#candid #authentic #totallyreal`,
+    (i)=>`The algorithm blessed me today 🙏\nDrop a ❤️ if you love ${t(i)} too!\n\n#fyp #explore`,
+    (i)=>`Started from nothing, now we're here 💪\nMy ${t(i)} journey in one post.\n\n#growth #journey #${t(i).replace(/\s/g,'')}`,
+  ];
+
+  const picked=seededShuffle([...Array(12).keys()],seed).slice(0,9);
+  return picked.map((ci,i)=>({
+    img:themeImg(600,600,themes,i+10),
+    fallback:fallbackSrc(seed+i,600,600),
+    caption:captions[ci%captions.length](i),
+    theme:t(i),
+    lk:Math.floor(seededRand(seed,i)*40000)+8000,
+    cm:Math.floor(seededRand(seed,i+50)*400)+80,
+    time:['2 hours','5 hours','1 day','3 days','5 days','1 week','2 weeks','3 weeks','1 month'][i]||'2 weeks'
+  }));
+}
+
+// ============================
+// DATA: INSTAGRAM REELS
+// ============================
+function makeIGReels(name,persona,themes){
+  const seed=name+persona+'reels';
+  const themeArr=parseThemes(themes);
+  const t=(i)=>themeArr.length?themeArr[i%themeArr.length]:'lifestyle';
+
+  const titles=[
+    (i)=>`${t(i)} in 15 seconds ⚡`,
+    (i)=>`POV: AI discovers ${t(i)} for the first time`,
+    (i)=>`${t(i)} transformation 🔥 #transition`,
+    (i)=>`Wait for it... 🤯 #${t(i).replace(/\s/g,'')}`,
+    (i)=>`Day 1 vs Day 365 of ${t(i)}`,
+    (i)=>`This ${t(i)} hack changed everything`,
+    (i)=>`Get ready with me: ${t(i)} edition 💄`,
+    (i)=>`Things that just make sense ✨ #${t(i).replace(/\s/g,'')}`,
+  ];
+
+  return seededShuffle([...Array(8).keys()],seed).slice(0,8).map((ci,i)=>({
+    img:themeImg(270,480,themes,i+40),
+    fallback:fallbackSrc(seed+i,270,480),
+    title:titles[ci%titles.length](i),
+    views:(Math.floor(seededRand(seed,i+100)*900)+100)+'K',
+    lk:Math.floor(seededRand(seed,i+110)*30000)+5000,
+    cm:Math.floor(seededRand(seed,i+120)*200)+30,
+  }));
+}
+
+// ============================
+// DATA: INSTAGRAM TAGGED
+// ============================
+function makeIGTagged(name,persona,themes){
+  const seed=name+persona+'tagged';
+  const themeArr=parseThemes(themes);
+  const t=(i)=>themeArr.length?themeArr[i%themeArr.length]:'lifestyle';
+
+  const brands=[
+    (i)=>`@${t(i).replace(/\s/g,'')}_official`,
+    ()=>`@vogue`,
+    ()=>`@nike`,
+    ()=>`@adidasoriginals`,
+    (i)=>`@${t(i).replace(/\s/g,'')}hub`,
+    ()=>`@billboard`,
+    ()=>`@hypebeast`,
+    ()=>`@bestfriend.ai`,
+    ()=>`@digitalfashionweek`,
+  ];
+
+  return seededShuffle([...Array(9).keys()],seed).slice(0,6).map((ci,i)=>({
+    img:themeImg(600,600,themes,i+70),
+    fallback:fallbackSrc(seed+i,600,600),
+    tagger:brands[ci%brands.length](i),
+    lk:Math.floor(seededRand(seed,i+200)*50000)+10000,
+    cm:Math.floor(seededRand(seed,i+210)*300)+50,
+    caption:`Loved working with ${name} on this ${t(i)} project! 🔥\n\n#collab #${t(i).replace(/\s/g,'')} #partnership`,
+    time:['3 days','1 week','2 weeks','3 weeks','1 month','2 months'][i]||'1 week'
+  }));
+}
+
+// ============================
+// DATA: YOUTUBE VIDEOS
+// ============================
+function makeYTVideos(name,persona,themes){
+  const seed=name+persona;
+  const themeArr=parseThemes(themes);
+  const t=(i)=>themeArr.length?themeArr[i%themeArr.length]:'content';
+
+  const titles=[
+    (i)=>`I Tried ${t(i)} Every Day for 30 Days — Here's What Happened`,
+    (i)=>`My ${t(i)} Setup Tour 2026 🔥 (You Won't Believe This)`,
+    (i)=>`${t(i)} Tips That Will CHANGE EVERYTHING`,
+    (i)=>`A Day in My Life | ${t(i)} Edition`,
+    (i)=>`Reacting to Your ${t(i)} Content (THIS IS AMAZING)`,
+    (i)=>`Complete Beginner's Guide to ${t(i)}`,
+    (i)=>`I Spent $10,000 on ${t(i)}... Was It Worth It?`,
+    (i)=>`Q&A: How I Started My ${t(i)} Journey`,
+    (i)=>`The TRUTH About ${t(i)} on Social Media`,
+    (i)=>`How ${t(i)} Changed My Life | Story Time`,
+    (i)=>`${t(i)} Vlog: What They Don't Show You`,
+    (i)=>`STOP Making These ${t(i)} Mistakes!`,
+    (i)=>`I Went PRO at ${t(i)} in 6 Months`,
+    (i)=>`${t(i)} on a Budget vs Premium — The Real Difference`,
+    (i)=>`Rating Subscribers' ${t(i)} Skills (I'm Shook)`,
+    (i)=>`Why Everyone is WRONG About ${t(i)}`,
+  ];
+
+  const durs=['12:34','8:21','15:07','10:45','6:33','20:18','14:52','9:16','11:03','18:45','7:29','13:11'];
+  const times=['2 days ago','5 days ago','1 week ago','2 weeks ago','3 weeks ago','1 month ago','2 months ago','3 months ago','4 months ago','5 months ago','8 months ago','1 year ago'];
+
+  const picked=seededShuffle([...Array(16).keys()],seed).slice(0,12);
+  return picked.map((ci,i)=>{
+    const title=titles[ci%titles.length](i);
+    const r=seededRand(seed,i+200);
+    let views;
+    if(r<.12)views=(Math.floor(r*50)/10+1).toFixed(1)+'M views';
+    else if(r<.5)views=Math.floor(r*900+100)+'K views';
+    else views=Math.floor(r*90+10)+'K views';
+    return {
+      thumb:themeImg(640,360,themes,i+30),
+      fallback:fallbackSrc(seed+'yt'+i,640,360),
+      title,dur:durs[i%durs.length],views,time:times[i%times.length],
+      desc:`In today's video, I'm diving deep into ${t(i)}. From tips and tricks to my personal experience — this one is packed with value.\n\n${persona}\n\n🔔 Subscribe for more ${themes} content!\n📧 Business: ${name.toLowerCase().replace(/\s/g,'')}@gmail.com\n\n#${t(i).replace(/\s/g,'')} #${name.replace(/\s/g,'')}`,
+      likesK:(Math.floor(seededRand(seed,i+300)*20)+1)+'K'
+    };
+  });
+}
+
+// ============================
+// DATA: YOUTUBE SHORTS
+// ============================
+function makeYTShorts(name,persona,themes){
+  const seed=name+persona+'shorts';
+  const themeArr=parseThemes(themes);
+  const t=(i)=>themeArr.length?themeArr[i%themeArr.length]:'content';
+
+  const titles=[
+    (i)=>`${t(i)} in 15 seconds 🔥 #shorts`,
+    (i)=>`Wait for it... 🤯 #${t(i).replace(/\s/g,'')} #shorts`,
+    (i)=>`POV: You discover ${t(i)} #shorts`,
+    (i)=>`${t(i)} hack you NEED to know #shorts`,
+    (i)=>`Day 1 vs Day 365 of ${t(i)} #shorts`,
+    (i)=>`This ${t(i)} trick is insane #shorts`,
+  ];
+
+  return titles.map((fn,i)=>({
+    title:fn(i),
+    thumb:themeImg(270,480,themes,i+60),
+    fallback:fallbackSrc(seed+i,270,480),
+    views:Math.floor(seededRand(seed,i+400)*900+100)+'K views',
+    likesK:(Math.floor(seededRand(seed,i+410)*50)+1)+'K',
+  }));
+}
+
+// ============================
+// DATA: YOUTUBE COMMUNITY
+// ============================
+function makeYTCommunity(name,persona,themes){
+  const avUrl=`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=ff0000`;
+  const themeArr=parseThemes(themes);
+  const mainTheme=themeArr[0]||'content';
+  return [
+    {text:`Hey everyone! 👋 Working on something HUGE for next week's ${mainTheme} video. Any suggestions? Drop your ideas below! 👇`,likes:'2.3K',time:'3 days ago',av:avUrl,img:themeImg(600,400,themes,80),fallbackImg:fallbackSrc(name+'comm1',600,400)},
+    {text:`Just hit 400K subscribers! 🎉🎉🎉 I can't believe this. You are the BEST community on the internet. ${persona}... and I couldn't do it without you all. ❤️`,likes:'8.1K',time:'1 week ago',av:avUrl,img:null},
+    {text:`Quick poll: What content do you want to see more of?\n\n👍 ${themeArr[0]||'Tutorials'}\n❤️ ${themeArr[1]||'Vlogs'}\n😂 ${themeArr[2]||'Challenges'}\n\nLet me know in the comments!`,likes:'1.5K',time:'2 weeks ago',av:avUrl,img:null},
+  ];
+}
+
+// ============================
+// RENDER PROFILE
+// ============================
+function renderProfile(name,persona,themes,tag){
+  const el=document.getElementById('profile');
+  if(platform==='instagram')renderIG(el,name,persona,themes,tag);
+  else renderYT(el,name,persona,themes,tag);
+  el.className=role;
+  show('profile');
+  listen();
+  if(role==='presenter')setupNotification(name,persona,themes);
+}
+
+// ============================
+// INSTAGRAM RENDER
+// ============================
+function renderIG(el,name,persona,themes,tag){
+  const user=name.toLowerCase().replace(/\s+/g,'_')+'.ai';
+  const seed=name+persona;
+  postsData=makeIGPosts(name,persona,themes);
+  reelsData=makeIGReels(name,persona,themes);
+  taggedData=makeIGTagged(name,persona,themes);
+  const followers=500000+Math.floor(seededRand(seed,99)*500000);
+  const following=200+Math.floor(seededRand(seed,88)*400);
+  const avUrl=`https://api.dicebear.com/7.x/lorelei/svg?seed=${encodeURIComponent(seed)}`;
+
+  let html=`<div class="ig">
+    <div class="ig-head">
+      <div class="avatar-ring"><img src="${avUrl}" alt=""></div>
+      <div class="ig-info">
+        <div class="ig-user">
+          @${esc(user)} <span class="badge">✓</span>
+          <button class="ig-follow-btn" onclick="toggleFollow(this)">Follow</button>
+        </div>
+        <div class="ig-stats">
+          <span><strong id="fc">0</strong> followers</span>
+          <span><strong>${following}</strong> following</span>
+          <span><strong>${postsData.length}</strong> posts</span>
+        </div>
+        <div class="ig-bio">
+          <div class="n">${esc(name)}</div>
+          <div>✨ ${esc(tag)}</div>
+          <div style="font-size:12px;color:#888;margin-top:2px">${esc(persona)}</div>
+          <div>📍 Somewhere in the metaverse</div>
+          <div>🔗 linktr.ee/${user.replace('.ai','')}</div>
+          <div style="margin-top:4px;color:#555;font-size:12px">🤖 100% AI-generated · 100% not real</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="ig-tab-bar">
+      <div class="ig-tab active" data-tab="posts" onclick="switchIGTab(this)">🔲 POSTS</div>
+      <div class="ig-tab" data-tab="reels" onclick="switchIGTab(this)">🎬 REELS</div>
+      <div class="ig-tab" data-tab="tagged" onclick="switchIGTab(this)">🏷️ TAGGED</div>
+    </div>
+
+    <!-- POSTS -->
+    <div class="ig-tab-content active" id="ig-tab-posts">
+      <div class="grid">${postsData.map((p,i)=>`
+        <div class="cell" data-i="${i}" onclick="openPost(${i})">
+          <img src="${p.img}" onerror="this.onerror=null;this.src='${p.fallback}'" alt="">
+          <div class="ov"><span>❤️ ${p.lk.toLocaleString()}</span><span>💬 ${p.cm}</span></div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- REELS -->
+    <div class="ig-tab-content" id="ig-tab-reels">
+      <div class="reels-grid">${reelsData.map((r,i)=>`
+        <div class="reel-cell" data-i="${i}" onclick="openReel(${i})">
+          <img src="${r.img}" onerror="this.onerror=null;this.src='${r.fallback}'" alt="">
+          <div class="reel-play"></div>
+          <div class="reel-info">
+            ${esc(r.title)}
+            <div class="reel-views">▶ ${r.views}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- TAGGED -->
+    <div class="ig-tab-content" id="ig-tab-tagged">
+      <div class="tagged-grid">${taggedData.map((t,i)=>`
+        <div class="tagged-cell" data-i="${i}" onclick="openTagged(${i})">
+          <img src="${t.img}" onerror="this.onerror=null;this.src='${t.fallback}'" alt="">
+          <div class="tag-icon">👤</div>
+          <div class="ov"><span>❤️ ${t.lk.toLocaleString()}</span><span>💬 ${t.cm}</span></div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  html+=buildPanel('ig');
+  if(role==='audience')html+=buildAudienceBar('ig');
+  el.innerHTML=html;
+  animNum('fc',0,followers,2500);
+
+  // Animate cells
+  setTimeout(()=>{
+    document.querySelectorAll('.cell,.reel-cell,.tagged-cell').forEach((c,i)=>
+      setTimeout(()=>c.classList.add('show'),100*i)
+    );
+  },100);
+
+  if(role==='audience')setupAudienceActions();
+}
+
+function switchIGTab(tab){
+  document.querySelectorAll('.ig-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  document.querySelectorAll('.ig-tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('ig-tab-'+tab.dataset.tab).classList.add('active');
+  // Re-animate new tab's cells
+  const ct=document.getElementById('ig-tab-'+tab.dataset.tab);
+  ct.querySelectorAll('.cell,.reel-cell,.tagged-cell').forEach((c,i)=>
+    setTimeout(()=>c.classList.add('show'),80*i)
+  );
+}
+
+function toggleFollow(btn){
+  btn.classList.toggle('following');
+  btn.textContent=btn.classList.contains('following')?'Following ✓':'Follow';
+}
+
+// ============================
+// YOUTUBE RENDER
+// ============================
+function renderYT(el,name,persona,themes,tag){
+  const handle='@'+name.toLowerCase().replace(/\s+/g,'')+'_ai';
+  const seed=name+persona;
+  videosData=makeYTVideos(name,persona,themes);
+  shortsData=makeYTShorts(name,persona,themes);
+  communityData=makeYTCommunity(name,persona,themes);
+  const subs=300000+Math.floor(seededRand(seed,77)*700000);
+  const avUrl=`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=ff0000`;
+
+  let html=`<div class="yt">
+    <img class="yt-banner" src="${themeImg(1200,300,themes,90)}" onerror="this.onerror=null;this.src='${fallbackSrc(seed+'banner',1200,300)}'" alt="">
+    <div class="yt-header">
+      <img class="yt-avatar" src="${avUrl}" alt="">
+      <div class="yt-ch-info">
+        <div class="yt-ch-name">${esc(name)}</div>
+        <div class="yt-ch-meta">${esc(handle)} · <span id="fc">0</span> subscribers · ${videosData.length} videos</div>
+        <div class="yt-ch-desc">${esc(tag)}<br>${esc(persona)}<br>📧 ${name.toLowerCase().replace(/\s/g,'')}@gmail.com</div>
+      </div>
+      <button class="yt-sub-btn" onclick="toggleSub(this)">Subscribe</button>
+    </div>
+    <div class="yt-tabs">
+      <div class="yt-tab active" data-tab="home" onclick="switchYTTab(this)">Home</div>
+      <div class="yt-tab" data-tab="videos" onclick="switchYTTab(this)">Videos</div>
+      <div class="yt-tab" data-tab="shorts" onclick="switchYTTab(this)">Shorts</div>
+      <div class="yt-tab" data-tab="community" onclick="switchYTTab(this)">Community</div>
+    </div>
+
+    <div class="yt-content" id="yt-tab-home">
+      <div class="yt-vgrid">${videosData.map((v,i)=>`
+        <div class="yt-vcard" data-i="${i}" onclick="openVideo(${i})">
+          <div class="yt-vthumb">
+            <img src="${v.thumb}" onerror="this.onerror=null;this.src='${v.fallback}'" alt="">
+            <div class="yt-dur">${v.dur}</div>
+          </div>
+          <div class="yt-vtitle">${esc(v.title)}</div>
+          <div class="yt-vmeta">${esc(name)} · ${v.views} · ${v.time}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="yt-content hidden" id="yt-tab-videos">
+      <div class="yt-vgrid">${videosData.map((v,i)=>`
+        <div class="yt-vcard show" onclick="openVideo(${i})">
+          <div class="yt-vthumb">
+            <img src="${v.thumb}" onerror="this.onerror=null;this.src='${v.fallback}'" alt="">
+            <div class="yt-dur">${v.dur}</div>
+          </div>
+          <div class="yt-vtitle">${esc(v.title)}</div>
+          <div class="yt-vmeta">${esc(name)} · ${v.views} · ${v.time}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="yt-content hidden" id="yt-tab-shorts">
+      <div class="yt-shorts-grid">${shortsData.map((s,i)=>`
+        <div class="yt-short" onclick="openShort(${i})">
+          <img src="${s.thumb}" onerror="this.onerror=null;this.src='${s.fallback}'" alt="">
+          <div class="yt-short-title">${esc(s.title)}<div class="yt-short-views">${s.views}</div></div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="yt-content hidden" id="yt-tab-community">
+      ${communityData.map(c=>`
+        <div class="yt-comm-post">
+          <div class="yt-comm-head">
+            <img class="yt-comm-av" src="${c.av}" alt="">
+            <div><div class="yt-comm-name">${esc(name)}</div><div class="yt-comm-time">${c.time}</div></div>
+          </div>
+          <div class="yt-comm-text">${esc(c.text).replace(/\n/g,'<br>')}</div>
+          ${c.img?`<img class="yt-comm-img" src="${c.img}" onerror="this.onerror=null;this.src='${c.fallbackImg}'" alt="">`:''}
+          <div class="yt-comm-actions">
+            <span onclick="this.textContent=this.textContent.includes('👍')?'👍 Liked':'👍 '+c.likes">👍 ${c.likes}</span>
+            <span>👎</span><span>💬 Reply</span>
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
+  html+=buildPanel('yt');
+  if(role==='audience')html+=buildAudienceBar('yt');
+  el.innerHTML=html;
+  animNum('fc',0,subs,2500);
+  document.querySelectorAll('.yt-vcard').forEach((c,i)=>setTimeout(()=>c.classList.add('show'),120*i));
+  setTimeout(()=>document.querySelectorAll('.yt-short').forEach((c,i)=>setTimeout(()=>c.classList.add('show'),100*i)),200);
+  if(role==='audience')setupAudienceActions();
+}
+
+function switchYTTab(tab){
+  document.querySelectorAll('.yt-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  document.querySelectorAll('.yt-content').forEach(c=>c.classList.add('hidden'));
+  document.getElementById('yt-tab-'+tab.dataset.tab).classList.remove('hidden');
+}
+
+function toggleSub(btn){
+  btn.classList.toggle('subscribed');
+  btn.textContent=btn.classList.contains('subscribed')?'Subscribed ✓':'Subscribe';
+}
+
+// ============================
+// MODALS
+// ============================
+function closeModal(){document.getElementById('modal-root').innerHTML=''}
+
+// IG Post Modal
+function openPost(i){
+  const p=postsData[i];if(!p)return;
+  const seed=profileInfo.name+(profileInfo.persona||'');
+  const avUrl=`https://api.dicebear.com/7.x/lorelei/svg?seed=${encodeURIComponent(seed)}`;
+  const user=profileInfo.name.toLowerCase().replace(/\s+/g,'_')+'.ai';
+
+  // Generate fake comments
+  const fakeComments=makeFakeComments(seed,i);
+
+  document.getElementById('modal-root').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal-close" onclick="closeModal()">✕</div>
+      <div class="ig-modal">
+        <div class="ig-modal-img">
+          <img src="${p.img}" onerror="this.onerror=null;this.src='${p.fallback}'" alt="">
+        </div>
+        <div class="ig-modal-side">
+          <div class="ig-modal-head">
+            <img src="${avUrl}" alt="">
+            <span>${esc(user)} <span class="badge" style="font-size:10px">✓</span></span>
+          </div>
+          <div class="ig-modal-comments">
+            <div class="ig-modal-caption"><strong>${esc(user)}</strong> ${esc(p.caption).replace(/\n/g,'<br>')}</div>
+            ${fakeComments}
+            <div style="font-size:12px;color:#555;margin-top:10px">View all ${p.cm} comments</div>
+          </div>
+          <div class="ig-modal-bottom">
+            <div class="ig-modal-actions">
+              <span onclick="modalLike(this,'heart')">🤍</span>
+              <span>💬</span>
+              <span>📤</span>
+              <span style="margin-left:auto">🔖</span>
+            </div>
+            <div class="ig-modal-likes">${p.lk.toLocaleString()} likes</div>
+            <div class="ig-modal-time">${p.time} ago</div>
+          </div>
+          <div class="ig-modal-input">
+            <input placeholder="Add a comment..." id="modal-comment-input" onkeypress="if(event.key==='Enter')modalComment()">
+            <button onclick="modalComment()">Post</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// IG Reel Modal
+function openReel(i){
+  const r=reelsData[i];if(!r)return;
+  const seed=profileInfo.name+(profileInfo.persona||'');
+  const avUrl=`https://api.dicebear.com/7.x/lorelei/svg?seed=${encodeURIComponent(seed)}`;
+  const user=profileInfo.name.toLowerCase().replace(/\s+/g,'_')+'.ai';
+
+  document.getElementById('modal-root').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal-close" onclick="closeModal()">✕</div>
+      <div class="reel-modal">
+        <div class="reel-modal-video" onclick="reelPlayMock(this)">
+          <img src="${r.img}" onerror="this.onerror=null;this.src='${r.fallback}'" alt="">
+          <div class="reel-play-big"></div>
+        </div>
+        <div class="reel-modal-info">
+          <img src="${avUrl}" alt="">
+          <div class="reel-modal-user">${esc(user)} · <span style="font-weight:400;color:#aaa;font-size:12px">${esc(r.title)}</span></div>
+          <div class="reel-modal-actions">
+            <span onclick="modalLike(this,'heart')">🤍</span>
+            <span>💬</span>
+            <span>📤</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function reelPlayMock(el){
+  el.onclick=null;
+  el.innerHTML=`<img src="${el.querySelector('img')?.src||''}" style="width:100%;height:100%;object-fit:cover;filter:brightness(.3)" alt=""><div style="position:absolute;display:flex;flex-direction:column;align-items:center;gap:8px"><div class="spinner" style="width:30px;height:30px;border-width:2px"></div><span style="font-size:13px;color:#aaa">Loading reel...</span></div>`;
+  setTimeout(()=>{
+    el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;aspect-ratio:9/16;background:#000"><span style="font-size:32px;margin-bottom:8px">⚠️</span><span style="font-size:14px;font-weight:600">Reel unavailable</span><span style="font-size:12px;color:#aaa;margin-top:4px">This content is not available right now</span></div>`;
+  },2500);
+}
+
+// IG Tagged Modal
+function openTagged(i){
+  const t=taggedData[i];if(!t)return;
+  const seed=profileInfo.name+(profileInfo.persona||'');
+  const taggerAv=`https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(t.tagger)}`;
+
+  document.getElementById('modal-root').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal-close" onclick="closeModal()">✕</div>
+      <div class="ig-modal">
+        <div class="ig-modal-img">
+          <img src="${t.img}" onerror="this.onerror=null;this.src='${t.fallback}'" alt="">
+        </div>
+        <div class="ig-modal-side">
+          <div class="ig-modal-head">
+            <img src="${taggerAv}" alt="">
+            <span>${esc(t.tagger)}</span>
+          </div>
+          <div class="ig-modal-comments">
+            <div class="ig-modal-caption"><strong>${esc(t.tagger)}</strong> ${esc(t.caption).replace(/\n/g,'<br>')}</div>
+          </div>
+          <div class="ig-modal-bottom">
+            <div class="ig-modal-actions">
+              <span onclick="modalLike(this,'heart')">🤍</span>
+              <span>💬</span>
+              <span>📤</span>
+              <span style="margin-left:auto">🔖</span>
+            </div>
+            <div class="ig-modal-likes">${t.lk.toLocaleString()} likes</div>
+            <div class="ig-modal-time">${t.time} ago</div>
+          </div>
+          <div class="ig-modal-input">
+            <input placeholder="Add a comment..." id="modal-comment-input" onkeypress="if(event.key==='Enter')modalComment()">
+            <button onclick="modalComment()">Post</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Fake comments generator
+function makeFakeComments(seed,postIdx){
+  const users=['@aesthetic.life','@wanderlust.ai','@pixel_dreams','@digital.nomad','@vibe.check','@future.self'];
+  const texts=['OMG this is everything 😍','How are you not real?? 🤯','Living for this content ✨','Need this energy in my life 💫','Obsessed with your feed!!','Teach me your ways 🙏','This is insane quality!'];
+  let html='';
+  for(let c=0;c<3;c++){
+    const ui=(seed.length+postIdx*7+c*13)%users.length;
+    const ti=(seed.length+postIdx*3+c*11)%texts.length;
+    const av=`https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(users[ui])}`;
+    html+=`<div class="ig-modal-comment-item">
+      <img src="${av}" alt="">
+      <div><strong>${users[ui]}</strong> ${texts[ti]}<br><span style="font-size:11px;color:#555">${c+1}d</span></div>
+    </div>`;
+  }
+  return html;
+}
+
+// YT Video Modal
+function openVideo(i){
+  const v=videosData[i];if(!v)return;
+  const avUrl=`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(profileInfo.name)}&backgroundColor=ff0000`;
+  const seed=profileInfo.name+(profileInfo.persona||'');
+  const subs=300000+Math.floor(seededRand(seed,77)*700000);
+  const subStr=subs>=1e6?(subs/1e6).toFixed(1)+'M':subs>=1e3?Math.floor(subs/1e3)+'K':subs;
+
+  document.getElementById('modal-root').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal-close" onclick="closeModal()">✕</div>
+      <div class="yt-modal">
+        <div class="yt-modal-player" id="yt-player" onclick="playVideoMock()">
+          <img src="${v.thumb}" onerror="this.onerror=null;this.src='${v.fallback}'" alt="">
+          <div class="yt-modal-play"></div>
+        </div>
+        <div class="yt-modal-info">
+          <div class="yt-modal-title">${esc(v.title)}</div>
+          <div class="yt-modal-meta">${v.views} · ${v.time}</div>
+          <div class="yt-modal-channel">
+            <img src="${avUrl}" alt="">
+            <div style="flex:1"><div class="yt-modal-channel-name">${esc(profileInfo.name)}</div><div class="yt-modal-channel-subs">${subStr} subscribers</div></div>
+            <button class="yt-sub-btn" onclick="toggleSub(this)" style="margin:0">Subscribe</button>
+          </div>
+          <div class="yt-modal-actions-bar">
+            <button class="yt-modal-act" onclick="this.classList.toggle('liked');modalLike(this,'thumb')">👍 ${v.likesK}</button>
+            <button class="yt-modal-act">👎</button>
+            <button class="yt-modal-act">📤 Share</button>
+            <button class="yt-modal-act">⬇️ Download</button>
+          </div>
+          <div class="yt-modal-desc">${esc(v.desc).replace(/\n/g,'<br>')}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// YT Short Modal
+function openShort(i){
+  const s=shortsData[i];if(!s)return;
+  const avUrl=`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(profileInfo.name)}&backgroundColor=ff0000`;
+
+  document.getElementById('modal-root').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal-close" onclick="closeModal()">✕</div>
+      <div class="short-modal">
+        <div class="short-modal-vid" id="yt-player" onclick="playVideoMock()">
+          <img src="${s.thumb}" onerror="this.onerror=null;this.src='${s.fallback}'" style="width:100%;height:100%;object-fit:cover" alt="">
+          <div class="yt-modal-play" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)"></div>
+          <div class="short-modal-sidebar">
+            <span onclick="event.stopPropagation();modalLike(this,'thumb')">👍</span>
+            <span class="scount">${s.likesK}</span>
+            <span>💬</span>
+            <span class="scount">—</span>
+            <span>📤</span>
+          </div>
+          <div class="short-modal-bottom">
+            <div class="sm-name">@${profileInfo.name.toLowerCase().replace(/\s+/g,'')}_ai</div>
+            <div class="sm-desc">${esc(s.title)}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function playVideoMock(){
+  const player=document.getElementById('yt-player');
+  if(!player)return;
+  player.onclick=null;
+  const img=player.querySelector('img');
+  const src=img?img.src:'';
+  player.innerHTML=`<img src="${src}" style="width:100%;height:100%;object-fit:cover;filter:brightness(.3)" alt=""><div style="position:absolute;display:flex;flex-direction:column;align-items:center;gap:8px"><div class="spinner yt-spin" style="width:30px;height:30px;border-width:2px"></div><span style="font-size:13px;color:#aaa">Loading...</span></div>`;
+  setTimeout(()=>{
+    player.innerHTML=`<div class="yt-modal-error"><span>⚠️</span><span>Playback error</span><span>Please try again later</span></div>`;
+  },2500);
+}
+
+function modalLike(el,type){
+  db.collection('sessions').doc(sid).update({likes:firebase.firestore.FieldValue.increment(1)});
+  floatEmoji();
+  if(type==='heart'&&el.textContent.includes('🤍'))el.textContent='❤️';
+}
+
+function modalComment(){
+  const inp=document.getElementById('modal-comment-input');
+  if(!inp)return;
+  const t=inp.value.trim();if(!t)return;
+  const author=role==='presenter'?'Presenter':nick;
+  db.collection('sessions').doc(sid).collection('comments').add({
+    author,text:t,createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  db.collection('sessions').doc(sid).update({comments:firebase.firestore.FieldValue.increment(1)});
+  inp.value='';
+}
+
+// ============================
+// PANEL
+// ============================
+function buildPanel(p){
+  if(role!=='presenter')return '';
+  const url=location.origin+location.pathname+'?s='+sid;
+  const nc=p==='yt'?'num yt-num':'num';
+  return `
+  <div class="panel">
+    <h3><span class="dot"></span> LIVE AUDIENCE</h3>
+    <div class="live-row">
+      <div class="live-box"><div class="${nc}" id="ll">0</div><div class="lbl">Likes</div></div>
+      <div class="live-box"><div class="${nc}" id="lc">0</div><div class="lbl">Comments</div></div>
+    </div>
+    <div class="feed" id="feed"></div>
+    <div class="qr-area">
+      <p>📱 Scan to join</p>
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}&bgcolor=0A0A0A&color=FFFFFF" alt="QR">
+      <p style="margin-top:6px;font-size:11px;color:#444;word-break:break-all">${url}</p>
+      <button class="copy-link" onclick="copyLink('${url}')">📋 Copy link</button>
+    </div>
+  </div>
+  <button id="reveal-btn" onclick="triggerReveal()">🎭 REVEAL</button>`;
+}
+
+function copyLink(url){
+  navigator.clipboard.writeText(url).then(()=>{
+    const btn=document.querySelector('.copy-link');
+    btn.textContent='✅ Copied!';
+    setTimeout(()=>btn.textContent='📋 Copy link',2000);
+  }).catch(()=>prompt('Copy this link:',url));
+}
+
+// ============================
+// AUDIENCE BAR
+// ============================
+function buildAudienceBar(p){
+  const hc=p==='yt'?'heart-btn yt-hb':'heart-btn ig-hb';
+  const hi=p==='yt'?'👍':'❤️';
+  const pc=p==='yt'?'yt-post':'ig-post';
+  return `
+  <button class="${hc}" id="hbtn">${hi}</button>
+  <div class="bot-bar">
+    <input id="cin" placeholder="Add a comment...">
+    <button id="cbtn" class="${pc}">Post</button>
+  </div>`;
+}
+
+function setupAudienceActions(){
+  document.getElementById('hbtn').onclick=()=>{
+    db.collection('sessions').doc(sid).update({likes:firebase.firestore.FieldValue.increment(1)});
+    floatEmoji();
+  };
+  document.getElementById('cbtn').onclick=sendComment;
+  document.getElementById('cin').addEventListener('keypress',e=>{if(e.key==='Enter')sendComment()});
+}
+
+function sendComment(){
+  const inp=document.getElementById('cin');
+  const t=inp.value.trim();if(!t)return;
+  db.collection('sessions').doc(sid).collection('comments').add({
+    author:nick,text:t,createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  db.collection('sessions').doc(sid).update({comments:firebase.firestore.FieldValue.increment(1)});
+  inp.value='';
+}
+
+// ============================
+// NOTIFICATION
+// ============================
+function setupNotification(name,persona,themes){
+  const themeArr=parseThemes(themes);
+  const mainTheme=themeArr[0]||'content';
+  const nt=document.getElementById('notif-title'),nb=document.getElementById('notif-body'),nm=document.getElementById('notif-money');
+  if(platform==='instagram'){
+    nt.className='ntitle ig-nt';nt.textContent='📩 New Brand Partnership Request';
+    nb.textContent=`Nike wants to collaborate with ${name}! "We love your authentic ${mainTheme} content and the way you connect with your audience."`;
+    nm.textContent='💰 $15,000 for 3 sponsored posts';
+  } else {
+    nt.className='ntitle yt-nt';nt.textContent='📩 New Sponsorship Offer';
+    nb.textContent=`NordVPN wants to sponsor ${name}'s channel! "Your ${mainTheme} videos are exactly what our audience loves."`;
+    nm.textContent='💰 $25,000 for 3 sponsored videos';
+  }
+  setTimeout(()=>{
+    document.getElementById('notif').classList.add('show');
+    setTimeout(()=>document.getElementById('notif').classList.remove('show'),8000);
+  },25000);
+}
+
+// ============================
+// FIREBASE LISTENERS
+// ============================
+function listen(){
+  db.collection('sessions').doc(sid).onSnapshot(doc=>{
+    if(!doc.exists)return;
+    const d=doc.data();
+    totalLikes=d.likes||0;totalComments=d.comments||0;
+    const ll=document.getElementById('ll'),lc=document.getElementById('lc');
+    if(ll)ll.textContent=totalLikes;
+    if(lc)lc.textContent=totalComments;
+    if(role==='audience'&&d.revealed&&!document.querySelector('.reveal-overlay'))showAudienceReveal();
+  });
+  if(role==='presenter'){
+    db.collection('sessions').doc(sid).collection('comments')
+      .orderBy('createdAt','desc').limit(100)
+      .onSnapshot(snap=>{
+        const feed=document.getElementById('feed');if(!feed)return;
+        snap.docChanges().forEach(ch=>{
+          if(ch.type==='added'){
+            const d=ch.doc.data(),div=document.createElement('div');
+            div.className='msg';
+            const ac=platform==='youtube'?'au yt-au':'au';
+            div.innerHTML=`<div class="${ac}">${esc(d.author)}</div><div class="tx">${esc(d.text)}</div><div class="tm">just now</div>`;
+            feed.insertBefore(div,feed.firstChild);
+          }
+        });
+      });
+  }
+}
+
+// ============================
+// REVEAL
+// ============================
+function triggerReveal(){
+  if(role!=='presenter')return;
+  if(!confirm('Ready to reveal the truth?'))return;
+  db.collection('sessions').doc(sid).update({revealed:true});
+  document.getElementById('profile').classList.add('hidden');
+  document.getElementById('reveal-btn').classList.add('hidden');
+  document.getElementById('notif').classList.remove('show');
+  const rv=document.getElementById('reveal'),rt=document.getElementById('reveal-title'),re=document.getElementById('reveal-text'),ri=document.getElementById('r-likes-icon');
+  if(platform==='instagram'){
+    rt.textContent='This influencer does not exist.';ri.textContent='❤️';
+    re.innerHTML=`You knew they were fake.<br>But you still liked. You still commented. You still <em>cared</em>.<br><br><strong>This is exactly what millions of people do with AI influencers every single day.</strong><br><br>Every photo was generated. Every caption was fabricated.<br>The followers, the brand deals, the "authentic" lifestyle — <strong>all constructed.</strong><br><br>Yet the engagement was real. The emotional response was real.<br>What does that tell us about <em>digital authenticity</em>?<br><br><strong>If you couldn't tell the difference, how would anyone else?</strong>`;
+  } else {
+    rt.textContent='This creator does not exist.';ri.textContent='👍';
+    re.innerHTML=`You knew they were fake.<br>But you still watched. You still commented. You still <em>engaged</em>.<br><br><strong>This is exactly what millions of people do with AI creators every single day.</strong><br><br>Every video was generated. Every title was clickbait.<br>The subscribers, the sponsorships, the "authentic" persona — <strong>all constructed.</strong><br><br>Yet the engagement was real. The emotional connection was real.<br>What does that tell us about <em>digital authenticity</em>?<br><br><strong>If you couldn't tell the difference, how would anyone else?</strong>`;
+  }
+  rv.style.display='flex';
+  document.getElementById('r-likes').textContent=totalLikes;
+  document.getElementById('r-comments').textContent=totalComments;
+}
+
+function showAudienceReveal(){
+  closeModal();
+  const ov=document.createElement('div');ov.className='reveal-overlay';
+  const w=platform==='youtube'?'creator':'influencer',icon=platform==='youtube'?'👍':'❤️';
+  ov.innerHTML=`<h2>This ${w} does not exist.</h2><div class="rbig">${totalLikes} ${icon}</div><div class="rbig">${totalComments} 💬</div><p class="rmsg">You knew they were fake.<br>But you still ${platform==='youtube'?'watched':'liked'}. You still commented.<br><br><strong>This is what millions do with AI ${w}s every day.</strong><br><br>The persona was constructed.<br>But your engagement was real.<br><strong>What does that say about digital authenticity?</strong></p>`;
+  document.body.appendChild(ov);
+}
+</script>
+</body>
+</html>
